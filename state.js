@@ -9,11 +9,40 @@ export class GameState {
     // Boss Battle Data
     this.bossMaxHp = 1200;
     this.bossHp = 1200;
-    this.bossAttackMax = 9.0; // seconds until attack
+    this.bossAttackMax = 9.0;
     this.bossAttackTimer = 9.0;
 
-    this.resonance = 0; // 0 to 100
+    this.resonance = 0;
     this.resonanceMax = 100;
+
+    // Transcendence Roguelike Prestige (追憶昇華システム)
+    this.astralSeeds = 0;
+    this.perks = {
+      orbitAcceleration: {
+        id: 'orbitAcceleration',
+        name: '恒星軌道の共鳴',
+        desc: '全星脈ダメージ恒久 +50%',
+        icon: '🪐',
+        lvl: 0,
+        cost: 1
+      },
+      timeDilation: {
+        id: 'timeDilation',
+        name: '悠久の時空膜',
+        desc: '巨神忘却波のカウントダウン制限時間恒久 +2.0s',
+        icon: '⌛',
+        lvl: 0,
+        cost: 2
+      },
+      starlightReincarnation: {
+        id: 'starlightReincarnation',
+        name: '星辰輪廻の雫',
+        desc: '再誕時に初期記憶の欠片 +500💎',
+        icon: '✨',
+        lvl: 0,
+        cost: 1
+      }
+    };
 
     // Upgrades
     this.upgrades = {
@@ -182,10 +211,41 @@ export class GameState {
     let shardMult = 1.0 + (this.upgrades.stardustHarvest.lvl - 1) * 0.35;
     let delayBonus = (this.upgrades.aegisResonance.lvl - 1) * 0.7;
 
+    // Transcendence Roguelike Perks
+    if (this.perks && this.perks.orbitAcceleration) {
+      baseDmg *= (1 + this.perks.orbitAcceleration.lvl * 0.5);
+    }
+    if (this.perks && this.perks.timeDilation) {
+      delayBonus += this.perks.timeDilation.lvl * 2.0;
+    }
+
     if (this.relics[0].unlocked) baseDmg *= 1.3;
     if (this.relics[2].unlocked) shardMult *= 1.5;
 
     return { baseDmg, chainPow, loopPow, shardMult, delayBonus };
+  }
+
+  calcTranscendenceGain() {
+    // Shards & Depth converted to Astral Seeds
+    return Math.max(1, Math.floor(Math.sqrt(this.memoryShards / 150) + (this.depth - 1) * 2));
+  }
+
+  doTranscendence() {
+    const gain = this.calcTranscendenceGain();
+    this.astralSeeds += gain;
+
+    // Reset run progress
+    const initShards = (this.perks && this.perks.starlightReincarnation) ? this.perks.starlightReincarnation.lvl * 500 : 0;
+    this.memoryShards = initShards;
+    this.depth = 1;
+    this.spiritLevel = 1;
+    for (let k in this.upgrades) {
+      this.upgrades[k].lvl = 1;
+      this.upgrades[k].cost = 20;
+    }
+    this.setupBossForDepth();
+    this.save();
+    return gain;
   }
 
   save() {
