@@ -1,12 +1,14 @@
 import { GameState } from './state.js';
 import { soundEngine } from './sound.js';
 import { AmbientVisualizer } from './ambient.js';
+import { GameRecorder } from './recorder.js';
 import confetti from 'canvas-confetti';
 
 class EphemereGame {
   constructor() {
     this.state = new GameState();
     this.visualizer = null;
+    this.recorder = null;
     this.dom = {};
     this.orbSpawnerTimer = null;
     this.passiveDamageTimer = null;
@@ -22,6 +24,10 @@ class EphemereGame {
     this.renderUpgrades();
     this.renderRelics();
     this.renderLore();
+
+    // Mount in-game quick recorder UI
+    this.recorder = new GameRecorder(document.getElementById('app-container'));
+    this.recorder.mountUI();
 
     // Setup ambient particle system
     const canvas = document.getElementById('ambient-canvas');
