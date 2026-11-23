@@ -15,7 +15,7 @@
   </head>
   <body>
     <div id="app-container">
-      <!-- Background Ambient Canvas for Stardust & Memory Shards -->
+      <!-- Background Ambient Canvas for Stardust & Cosmic Glow -->
       <canvas id="ambient-canvas"></canvas>
 
       <!-- Main Game Header / Status Bar -->
@@ -50,15 +50,15 @@
       <!-- Main Navigation Tabs -->
       <nav id="bottom-nav">
         <button class="nav-item active" data-tab="tab-battle">
-          <span class="nav-icon">⚔️</span>
-          <span class="nav-label">巡礼・調律</span>
+          <span class="nav-icon">✨</span>
+          <span class="nav-label">星脈紡ぎ</span>
         </button>
         <button class="nav-item" data-tab="tab-resonance">
-          <span class="nav-icon">✨</span>
-          <span class="nav-label">記憶紡ぎ</span>
+          <span class="nav-icon">🔮</span>
+          <span class="nav-label">記憶調律</span>
         </button>
         <button class="nav-item" data-tab="tab-relics">
-          <span class="nav-icon">🔮</span>
+          <span class="nav-icon">🕯️</span>
           <span class="nav-label">儚き遺物</span>
         </button>
         <button class="nav-item" data-tab="tab-records">
@@ -69,16 +69,16 @@
 
       <!-- Screen Views -->
       <main id="main-content">
-        <!-- TAB 1: BATTLE & HARMONY (Active Gameplay) -->
+        <!-- TAB 1: CONSTELLATION WEAVING BATTLE (革新的星座リンケージ) -->
         <section id="tab-battle" class="tab-screen active">
           <!-- Boss / Target Area -->
           <div class="boss-stage">
-            <div class="boss-decor-ring"></div>
-            <div class="boss-card">
+            <div class="boss-card" id="boss-card">
               <div class="boss-portrait-wrap">
                 <img id="boss-avatar" src="/assets/character_boss.png" alt="忘却の巨神" />
                 <div class="boss-glow-overlay"></div>
-                <div class="boss-break-particles" id="boss-particles"></div>
+                <!-- Boss Decay Timer ring -->
+                <div class="boss-attack-charge" id="boss-attack-charge"></div>
               </div>
               <div class="boss-details">
                 <div class="boss-header-row">
@@ -87,51 +87,75 @@
                 </div>
                 <h2 class="boss-name" id="boss-name">忘却の巨神・オブリビオン</h2>
                 
-                <!-- Boss HP Bar & Decay Countdown -->
+                <!-- Boss HP Bar -->
                 <div class="decay-bar-container">
                   <div class="decay-bar-label">
                     <span>世界の形相 (HP)</span>
-                    <span id="boss-hp-text">1000 / 1000</span>
+                    <span id="boss-hp-text">1,000 / 1,000</span>
                   </div>
                   <div class="hp-progress-track">
                     <div class="hp-progress-fill" id="boss-hp-fill" style="width: 100%;"></div>
                   </div>
                 </div>
 
-                <!-- Resonance meter (Ephemera Burst gauge) -->
-                <div class="resonance-gauge-wrap">
-                  <div class="resonance-gauge-label">
-                    <span>儚き共鳴 (BURST)</span>
-                    <span id="resonance-pct">0%</span>
+                <!-- Boss Countdown & Player Resonance Burst gauge -->
+                <div class="gauge-split-row">
+                  <div class="sub-gauge-col">
+                    <div class="sub-gauge-header">
+                      <span class="warn-label">巨神の忘却波 (崩壊)</span>
+                      <span id="boss-attack-timer">8.0s</span>
+                    </div>
+                    <div class="sub-track warning-track">
+                      <div class="sub-fill warning-fill" id="boss-attack-fill" style="width: 0%;"></div>
+                    </div>
                   </div>
-                  <div class="resonance-track">
-                    <div class="resonance-fill" id="resonance-fill" style="width: 0%;"></div>
+                  <div class="sub-gauge-col">
+                    <div class="sub-gauge-header">
+                      <span>星脈共鳴 (BURST)</span>
+                      <span id="resonance-pct">0%</span>
+                    </div>
+                    <div class="sub-track cyan-track">
+                      <div class="sub-fill cyan-fill" id="resonance-fill" style="width: 0%;"></div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Dynamic Ephemera Tap & Puzzle Field -->
-          <div class="interactive-field" id="interactive-field">
-            <!-- Floating orbs / memory spheres spawn here dynamically -->
-            <div class="field-hint" id="field-hint">
-              <span class="pulse-text">空間に現れる「儚き想い」を繋ぎ、記憶を調律せよ</span>
+          <!-- Dynamic Constellation Weaving Puzzle Arena -->
+          <div class="constellation-arena" id="constellation-arena">
+            <!-- Canvas layer for smooth drag line & sacred geometry -->
+            <canvas id="line-canvas"></canvas>
+
+            <!-- Guide hint overlay -->
+            <div class="arena-overlay-hint" id="arena-hint">
+              <span class="hint-pill">光る想いの星を一筆書きで紡げ。輪を作ると「星脈解放」</span>
             </div>
+
+            <!-- Active chain counter HUD -->
+            <div class="chain-indicator" id="chain-indicator">
+              <span class="chain-num" id="chain-count">0</span>
+              <span class="chain-label">STELLAR CHAIN</span>
+              <span class="loop-badge" id="loop-badge">🌌 星座閉環 (SUPER NOVA!)</span>
+            </div>
+
+            <!-- Memory Nodes are dynamically spawned and drawn here -->
+            <div id="nodes-container"></div>
             
-            <!-- Quick Action Skill Buttons -->
+            <!-- Quick Action Skill Buttons Dock -->
             <div class="skills-dock">
-              <button class="skill-btn" id="skill-reversal" title="刹那の反転: 一定時間、泡沫の消滅ダメージを3倍に増幅">
+              <button class="skill-btn" id="skill-reversal" title="刻の逆行: 6秒間、全ての想いの星が同色に共鳴し全結合可能に">
                 <div class="skill-icon">⏳</div>
                 <div class="skill-name">刻の逆行</div>
                 <div class="skill-cd-mask" id="skill-reversal-cd"></div>
               </button>
-              <button class="skill-btn" id="skill-crystallize" title="記憶結晶化: 盤面全ての想いを一斉に破裂させ大ダメージ">
+              <button class="skill-btn" id="skill-crystallize" title="天球の整列: 盤面の星を即座に再配置し高密度リンクを生成">
                 <div class="skill-icon">💠</div>
-                <div class="skill-name">星屑結晶</div>
+                <div class="skill-name">天球整列</div>
                 <div class="skill-cd-mask" id="skill-crystallize-cd"></div>
               </button>
-              <button class="skill-btn special" id="skill-burst" disabled title="儚き絶唱: 共鳴100%で発動可能な究極の記憶解放">
+              <button class="skill-btn special" id="skill-burst" disabled title="儚き絶唱: 共鳴100%で発動可能な巫女ラピスの超美麗カットイン必殺技">
                 <div class="skill-icon">🌌</div>
                 <div class="skill-name">儚き絶唱</div>
                 <div class="skill-burst-shine"></div>
@@ -143,8 +167,8 @@
         <!-- TAB 2: RESONANCE (UPGRADES & SPIRIT WEAVING) -->
         <section id="tab-resonance" class="tab-screen">
           <div class="section-hero">
-            <h2 class="cinzel-title">MEMORY WEAVING</h2>
-            <p class="section-desc">消えゆく世界の記憶を魂に織り込み、永久の力を手に入れる</p>
+            <h2 class="cinzel-title">STELLAR HARMONY</h2>
+            <p class="section-desc">星脈を調律し、消えゆく魂に永久の力を与える</p>
           </div>
           <div class="resonance-cards-grid" id="upgrades-list">
             <!-- Dynamically populated upgrade cards -->
@@ -176,6 +200,18 @@
 
       <!-- Combat Float Floating Damage Overlay -->
       <div id="float-damage-layer"></div>
+
+      <!-- Super Cut-in Animation Layer for Ultimate Burst -->
+      <div id="cutin-layer" class="cutin-container hidden">
+        <div class="cutin-flash"></div>
+        <div class="cutin-char-card">
+          <img src="/assets/lapis_burst.png" alt="Maiden Lapis Ultimate" />
+          <div class="cutin-text-group">
+            <div class="cutin-sub">泡沫の祈祷 · 最終絶唱</div>
+            <div class="cutin-main">「世界が消えても、この記憶だけは……！」</div>
+          </div>
+        </div>
+      </div>
 
       <!-- Dialogue / Event Modal Popups -->
       <div id="story-modal" class="modal-backdrop hidden">

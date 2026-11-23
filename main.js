@@ -10,42 +10,55 @@ class EphemereGame {
     this.visualizer = null;
     this.recorder = null;
     this.dom = {};
-    this.orbSpawnerTimer = null;
-    this.passiveDamageTimer = null;
-    this.comboResetTimer = null;
+
+    // Puzzle Grid configuration
+    this.gridRows = 5;
+    this.gridCols = 5;
+    this.nodes = []; // 2D or flat array of node objects
+    this.activeChain = []; // sequence of node objects currently selected
+    this.isDragging = false;
+    this.currentColor = null;
+    this.isLoopFormed = false;
+
+    // Timers
+    this.bossTimerInterval = null;
+    this.lineCanvas = null;
+    this.lineCtx = null;
   }
 
   init() {
     this.state.load();
     this.cacheDom();
     this.bindEvents();
+    this.initCanvas();
     this.renderHeader();
     this.renderBoss();
     this.renderUpgrades();
     this.renderRelics();
     this.renderLore();
 
+    // Spawn initial constellation grid
+    this.initConstellationGrid();
+
+    // Setup ambient particle visualizer
+    const ambCanvas = document.getElementById('ambient-canvas');
+    if (ambCanvas) {
+      this.visualizer = new AmbientVisualizer(ambCanvas);
+    }
+
     // Mount in-game quick recorder UI
     this.recorder = new GameRecorder(document.getElementById('app-container'));
     this.recorder.mountUI();
 
-    // Setup ambient particle system
-    const canvas = document.getElementById('ambient-canvas');
-    if (canvas) {
-      this.visualizer = new AmbientVisualizer(canvas);
-    }
+    // Start Boss Attack Countdown
+    this.startBossTimer();
 
-    // Start Loops
-    this.startOrbSpawning();
-    this.startPassiveLoop();
-    this.updateSkillCooldowns();
-
-    // Trigger initial tutorial dialogue if depth 1
+    // Initial Story modal on new start
     if (this.state.depth === 1 && this.state.memoryShards === 0) {
       this.showStoryModal(
         'ラピス',
         '/assets/character_lapis.png',
-        '「旅人さん……目を覚まして。この世界は、人々の祈りと記憶が薄れゆく黄昏の果て。\n空中に漂う儚き想い（泡）に触れて、世界を調律してください……」'
+        '「旅人さん……目を覚まして。\n空に浮かぶ想いの星を指先でなぞり、星座（星脈）を紡いでください。\n星々を一周させて輪を作ると、神秘の星脈解放が巻き起こります……」'
       );
     }
   }
@@ -60,10 +73,17 @@ class EphemereGame {
       bossAvatar: document.getElementById('boss-avatar'),
       bossHpText: document.getElementById('boss-hp-text'),
       bossHpFill: document.getElementById('boss-hp-fill'),
+      bossAttackTimer: document.getElementById('boss-attack-timer'),
+      bossAttackFill: document.getElementById('boss-attack-fill'),
       resonancePct: document.getElementById('resonance-pct'),
       resonanceFill: document.getElementById('resonance-fill'),
-      interactiveField: document.getElementById('interactive-field'),
+      constellationArena: document.getElementById('constellation-arena'),
+      nodesContainer: document.getElementById('nodes-container'),
+      chainIndicator: document.getElementById('chain-indicator'),
+      chainCount: document.getElementById('chain-count'),
+      loopBadge: document.getElementById('loop-badge'),
       floatLayer: document.getElementById('float-damage-layer'),
+      cutinLayer: document.getElementById('cutin-layer'),
       upgradesList: document.getElementById('upgrades-list'),
       relicsList: document.getElementById('relics-list'),
       loreContainer: document.getElementById('lore-container'),
@@ -89,8 +109,23 @@ class EphemereGame {
     };
   }
 
+  initCanvas() {
+    this.lineCanvas = document.getElementById('line-canvas');
+    if (!this.lineCanvas) return;
+    this.lineCtx = this.lineCanvas.getContext('2d');
+    this.resizeCanvas();
+    window.addEventListener('resize', () => this.resizeCanvas());
+  }
+
+  resizeCanvas() {
+    if (!this.lineCanvas) return;
+    const arena = this.dom.constellationArena;
+    this.lineCanvas.width = arena.clientWidth;
+    this.lineCanvas.height = arena.clientHeight;
+  }
+
   bindEvents() {
-    // Navigation tabs
+    // Navigation
     document.querySelectorAll('.nav-item').forEach(button => {
       button.addEventListener('click', () => {
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -109,14 +144,14 @@ class EphemereGame {
       this.dom.soundIcon.textContent = enabled ? '🔊' : '🔇';
     });
 
-    // Reset button
+    // Reset
     this.dom.btnReset.addEventListener('click', () => {
       if (confirm('記憶をすべて手放し、最初の黄昏へと還りますか？（リセット）')) {
         this.state.reset();
       }
     });
 
-    // Lore quick shortcut
+    // Lore shortcut
     this.dom.btnLore.addEventListener('click', () => {
       const loreNav = document.querySelector('[data-tab="tab-records"]');
       if (loreNav) loreNav.click();
@@ -128,7 +163,7 @@ class EphemereGame {
       soundEngine.startAmbientMusic();
     });
 
-    // Victory next button
+    // Victory next depth
     this.dom.btnNextDepth.addEventListener('click', () => {
       this.advanceToNextDepth();
     });
@@ -138,230 +173,390 @@ class EphemereGame {
     this.dom.skillCrystallize.addEventListener('click', () => this.useSkillCrystallize());
     this.dom.skillBurst.addEventListener('click', () => this.useSkillBurst());
 
-    // Field direct tap (fallback slight resonance)
-    this.dom.interactiveField.addEventListener('pointerdown', (e) => {
-      if (e.target === this.dom.interactiveField || e.target.id === 'field-hint' || e.target.classList.contains('pulse-text')) {
-        this.handleDirectTap(e);
-      }
-    });
+    // Constellation Arena Pointer Drag Events (Touch & Mouse unified)
+    const arena = this.dom.constellationArena;
+    arena.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+    arena.addEventListener('pointermove', (e) => this.handlePointerMove(e));
+    window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
+    window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
   }
 
-  // Handle direct tap on void
-  handleDirectTap(e) {
+  // ================= CONSTELLATION GRID GENERATION =================
+  initConstellationGrid() {
+    const container = this.dom.nodesContainer;
+    container.innerHTML = '';
+    this.nodes = [];
+
+    const colors = ['cyan', 'purple', 'gold', 'emerald'];
+    const runes = {
+      cyan: '✧',
+      purple: '✦',
+      gold: '✹',
+      emerald: '❖'
+    };
+
+    const rect = this.dom.constellationArena.getBoundingClientRect();
+    const paddingX = 26;
+    const paddingY = 44;
+    const availWidth = (rect.width || 380) - paddingX * 2;
+    const availHeight = (rect.height || 360) - paddingY * 2 - 50; // leave bottom space for skills
+
+    const cellW = availWidth / (this.gridCols - 1);
+    const cellH = availHeight / (this.gridRows - 1);
+
+    for (let r = 0; r < this.gridRows; r++) {
+      for (let c = 0; c < this.gridCols; c++) {
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const x = paddingX + c * cellW;
+        const y = paddingY + r * cellH;
+
+        const el = document.createElement('div');
+        el.className = `stellar-node color-${color}`;
+        el.dataset.row = r;
+        el.dataset.col = c;
+        el.dataset.color = color;
+
+        const size = 36;
+        el.style.width = `${size}px`;
+        el.style.height = `${size}px`;
+        el.style.left = `${x - size / 2}px`;
+        el.style.top = `${y - size / 2}px`;
+
+        el.innerHTML = `
+          <div class="node-inner">
+            <span class="node-rune">${runes[color]}</span>
+          </div>
+        `;
+
+        container.appendChild(el);
+
+        this.nodes.push({
+          row: r,
+          col: c,
+          color: color,
+          x: x,
+          y: y,
+          el: el
+        });
+      }
+    }
+  }
+
+  // ================= DRAG & LINK PUZZLE MECHANIC =================
+  getNodeAtPosition(x, y) {
+    const threshold = 26; // touch radius in px
+    for (const node of this.nodes) {
+      const dx = node.x - x;
+      const dy = node.y - y;
+      if (Math.hypot(dx, dy) < threshold) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  areNodesAdjacent(n1, n2) {
+    const dr = Math.abs(n1.row - n2.row);
+    const dc = Math.abs(n1.col - n2.col);
+    // 8-directional linking (horizontal, vertical, diagonal)
+    return (dr <= 1 && dc <= 1) && !(dr === 0 && dc === 0);
+  }
+
+  handlePointerDown(e) {
     soundEngine.init();
     soundEngine.startAmbientMusic();
-    const stats = this.state.calcStats();
-    const rect = this.dom.interactiveField.getBoundingClientRect();
+
+    const rect = this.dom.constellationArena.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const damage = Math.round(stats.tap * 0.4);
-    this.dealDamage(damage, false, e.clientX, e.clientY);
-    if (this.visualizer) {
-      this.visualizer.createBurst(e.clientX, e.clientY, '#38bdf8', 8);
-    }
+    const node = this.getNodeAtPosition(x, y);
+    if (!node) return;
+
+    this.isDragging = true;
+    this.activeChain = [node];
+    this.currentColor = node.color;
+    this.isLoopFormed = false;
+
+    node.el.classList.add('selected');
+    soundEngine.playNodeLink(0, 1);
+
+    this.updateChainHUD();
+    this.drawConstellationLines(x, y);
   }
 
-  // Spawns ephemeral memory bubbles that slowly decay and vanish if not popped
-  startOrbSpawning() {
-    this.orbSpawnerTimer = setInterval(() => {
-      if (document.hidden) return;
-      const count = document.querySelectorAll('.ephemera-orb').length;
-      if (count < 6) {
-        this.spawnOrb();
+  handlePointerMove(e) {
+    if (!this.isDragging || this.activeChain.length === 0) return;
+
+    const rect = this.dom.constellationArena.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const hovered = this.getNodeAtPosition(x, y);
+    const isOmniColor = Date.now() < this.state.skills.reversal.activeUntil;
+
+    if (hovered) {
+      const last = this.activeChain[this.activeChain.length - 1];
+
+      // Check undo if dragging back to previous node
+      if (this.activeChain.length >= 2 && hovered === this.activeChain[this.activeChain.length - 2]) {
+        const removed = this.activeChain.pop();
+        removed.el.classList.remove('selected');
+        this.isLoopFormed = false;
+        soundEngine.playNodeLink(this.activeChain.length - 1, this.activeChain.length);
+        this.updateChainHUD();
       }
-    }, 1200);
-  }
+      // Check Loop Formation (linking back to 1st node after at least 4 nodes)
+      else if (hovered === this.activeChain[0] && this.activeChain.length >= 4 && !this.isLoopFormed) {
+        this.isLoopFormed = true;
+        soundEngine.playNodeLink(this.activeChain.length, this.activeChain.length + 2);
+        this.updateChainHUD();
+      }
+      // Check Valid Next Node: same color (or omni mode), adjacent, not already visited
+      else if (!this.activeChain.includes(hovered) && this.areNodesAdjacent(last, hovered)) {
+        if (hovered.color === this.currentColor || isOmniColor) {
+          this.activeChain.push(hovered);
+          hovered.el.classList.add('selected');
 
-  spawnOrb() {
-    const field = this.dom.interactiveField;
-    const rect = field.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+          soundEngine.playNodeLink(this.activeChain.length - 1, this.activeChain.length);
 
-    // Orb types: blue (normal), purple (combo catalyst), gold (rare high yield)
-    const rand = Math.random();
-    let type = 'blue';
-    let icon = '💧';
-    let duration = 4000; // ephemeral lifespan in ms
+          if (this.visualizer) {
+            this.visualizer.createBurst(e.clientX, e.clientY, this.getColorHex(hovered.color), 8);
+          }
 
-    if (rand > 0.88) {
-      type = 'gold';
-      icon = '🌟';
-      duration = 2600; // vanishes fast!
-    } else if (rand > 0.65) {
-      type = 'purple';
-      icon = '🔮';
-      duration = 3400;
+          this.updateChainHUD();
+        }
+      }
     }
 
-    const orb = document.createElement('div');
-    orb.className = `ephemera-orb orb-${type}`;
-    const size = type === 'gold' ? 52 : (type === 'purple' ? 48 : 44);
+    this.drawConstellationLines(x, y);
+  }
 
-    const maxX = Math.max(20, rect.width - size - 20);
-    const maxY = Math.max(40, rect.height - size - 70);
-    const posX = Math.floor(Math.random() * maxX);
-    const posY = Math.floor(Math.random() * maxY) + 30;
+  handlePointerUp(e) {
+    if (!this.isDragging) return;
+    this.isDragging = false;
 
-    orb.style.width = `${size}px`;
-    orb.style.height = `${size}px`;
-    orb.style.left = `${posX}px`;
-    orb.style.top = `${posY}px`;
+    const count = this.activeChain.length;
 
-    orb.innerHTML = `
-      <div class="orb-inner ${type}">
-        <span>${icon}</span>
-      </div>
-    `;
+    if (count >= 3 || (this.isLoopFormed && count >= 4)) {
+      this.resolveChain();
+    } else {
+      // Cancelled short chain
+      this.clearChainState();
+    }
+  }
 
-    // Lifespan animation
-    const startTime = Date.now();
-    let isPopped = false;
+  clearChainState() {
+    this.activeChain.forEach(n => n.el.classList.remove('selected'));
+    this.activeChain = [];
+    this.isLoopFormed = false;
+    this.dom.chainIndicator.classList.remove('visible');
+    this.dom.loopBadge.classList.remove('active');
+    this.clearLines();
+  }
 
-    const popHandler = (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      if (isPopped) return;
-      isPopped = true;
-      this.handleOrbPop(orb, type, e.clientX, e.clientY);
+  drawConstellationLines(cursorX = null, cursorY = null) {
+    if (!this.lineCtx) return;
+    this.clearLines();
+
+    if (this.activeChain.length === 0) return;
+
+    this.lineCtx.save();
+    const colorHex = this.getColorHex(this.currentColor);
+
+    // Glow effect
+    this.lineCtx.strokeStyle = this.isLoopFormed ? '#f43f5e' : colorHex;
+    this.lineCtx.lineWidth = this.isLoopFormed ? 4.5 : 3.5;
+    this.lineCtx.lineCap = 'round';
+    this.lineCtx.lineJoin = 'round';
+    this.lineCtx.shadowBlur = 14;
+    this.lineCtx.shadowColor = this.isLoopFormed ? '#f43f5e' : colorHex;
+
+    this.lineCtx.beginPath();
+    this.activeChain.forEach((n, idx) => {
+      if (idx === 0) this.lineCtx.moveTo(n.x, n.y);
+      else this.lineCtx.lineTo(n.x, n.y);
+    });
+
+    if (this.isLoopFormed && this.activeChain.length > 0) {
+      this.lineCtx.lineTo(this.activeChain[0].x, this.activeChain[0].y);
+    } else if (cursorX !== null && cursorY !== null && this.isDragging) {
+      this.lineCtx.lineTo(cursorX, cursorY);
+    }
+
+    this.lineCtx.stroke();
+    this.lineCtx.restore();
+  }
+
+  clearLines() {
+    if (this.lineCtx && this.lineCanvas) {
+      this.lineCtx.clearRect(0, 0, this.lineCanvas.width, this.lineCanvas.height);
+    }
+  }
+
+  getColorHex(color) {
+    const map = {
+      cyan: '#38bdf8',
+      purple: '#a855f7',
+      gold: '#fbbf24',
+      emerald: '#2dd4bf'
     };
-
-    orb.addEventListener('pointerdown', popHandler);
-
-    field.appendChild(orb);
-
-    // Natural decay (if player misses it)
-    setTimeout(() => {
-      if (!isPopped && orb.parentElement) {
-        orb.style.transition = 'all 0.4s ease-out';
-        orb.style.opacity = '0';
-        orb.style.transform = 'scale(0.3)';
-        setTimeout(() => orb.remove(), 400);
-      }
-    }, duration);
+    return map[color] || '#38bdf8';
   }
 
-  handleOrbPop(orbEl, type, clientX, clientY) {
-    soundEngine.init();
-    soundEngine.startAmbientMusic();
+  updateChainHUD() {
+    const count = this.activeChain.length;
+    if (count > 1) {
+      this.dom.chainIndicator.classList.add('visible');
+      this.dom.chainCount.textContent = count;
+      if (this.isLoopFormed) {
+        this.dom.loopBadge.classList.add('active');
+      } else {
+        this.dom.loopBadge.classList.remove('active');
+      }
+    } else {
+      this.dom.chainIndicator.classList.remove('visible');
+    }
+  }
 
-    // Combo streak logic
-    this.state.combo++;
-    clearTimeout(this.comboResetTimer);
-    this.comboResetTimer = setTimeout(() => {
-      this.state.combo = 0;
-    }, 2800);
-
-    soundEngine.playOrbPop(type, this.state.combo);
-
-    // Calculate damage & rewards
+  // ================= RESOLVE CONSTELLATION LINK =================
+  resolveChain() {
+    const count = this.activeChain.length;
+    const isLoop = this.isLoopFormed;
     const stats = this.state.calcStats();
-    let baseDmg = stats.tap;
-    let shardYield = 1 + Math.floor(this.state.depth * 0.8);
 
-    if (type === 'purple') {
-      baseDmg *= 1.8;
-      shardYield *= 2;
-    } else if (type === 'gold') {
-      baseDmg *= 3.5;
-      shardYield *= 5;
+    soundEngine.playChainComplete(count, isLoop);
+
+    // Calculate dynamic damage
+    let damage = stats.baseDmg * count * Math.pow(stats.chainPow, count - 1);
+    let shardReward = Math.round(count * 2.5 * stats.shardMult);
+
+    if (isLoop) {
+      damage *= stats.loopPow;
+      shardReward *= 2.5;
+
+      // Reset boss attack timer as reward for closing a loop!
+      this.state.bossAttackTimer = Math.min(this.state.bossAttackMax, this.state.bossAttackTimer + 4.0);
     }
 
-    // Time-reversal skill active?
-    if (Date.now() < this.state.skills.reversal.activeUntil) {
-      baseDmg *= 3.0;
-      shardYield *= 2;
-    }
-
-    // Combo multiplier
-    const comboMult = 1 + Math.min(this.state.combo * 0.08, 1.5);
-    baseDmg *= comboMult;
-
-    // Critical roll
-    const isCrit = Math.random() < stats.crit;
-    if (isCrit) {
-      baseDmg *= stats.critD;
-    }
-
-    baseDmg = Math.round(baseDmg);
-    shardYield = Math.round(shardYield * stats.shardMult);
+    damage = Math.round(damage);
+    shardReward = Math.round(shardReward);
 
     // Add resonance gauge
-    const resAdd = (type === 'gold' ? 12 : (type === 'purple' ? 7 : 4)) * stats.resMultiplier;
+    const resAdd = (count * 4.5 + (isLoop ? 18 : 0)) * (1 + (this.state.upgrades.tapPower.lvl - 1) * 0.1);
     this.state.resonance = Math.min(this.state.resonanceMax, this.state.resonance + resAdd);
 
-    // Add memory shards
-    this.state.memoryShards += shardYield;
+    this.state.memoryShards += shardReward;
 
-    // Particle Burst
-    const burstColor = type === 'gold' ? '#fde047' : (type === 'purple' ? '#c084fc' : '#38bdf8');
-    if (this.visualizer) {
-      this.visualizer.createBurst(clientX, clientY, burstColor, type === 'gold' ? 35 : 20);
-    }
+    // Show center damage pop
+    const last = this.activeChain[Math.floor(this.activeChain.length / 2)];
+    const arenaRect = this.dom.constellationArena.getBoundingClientRect();
+    this.dealDamage(damage, isLoop, arenaRect.left + last.x, arenaRect.top + last.y, isLoop);
 
-    // Boss damage deal & float number
-    this.dealDamage(baseDmg, isCrit, clientX, clientY);
+    // Replace cleared nodes with fresh random stars
+    const colors = ['cyan', 'purple', 'gold', 'emerald'];
+    const runes = { cyan: '✧', purple: '✦', gold: '✹', emerald: '❖' };
 
-    // Pop element animation
-    orbEl.remove();
+    this.activeChain.forEach(n => {
+      // Particle sparks
+      if (this.visualizer) {
+        this.visualizer.createBurst(arenaRect.left + n.x, arenaRect.top + n.y, this.getColorHex(n.color), 14);
+      }
 
-    // Update UI
+      // Animate replacement
+      n.el.style.transform = 'scale(0)';
+      setTimeout(() => {
+        const newColor = colors[Math.floor(Math.random() * colors.length)];
+        n.color = newColor;
+        n.el.className = `stellar-node color-${newColor}`;
+        n.el.dataset.color = newColor;
+        n.el.querySelector('.node-rune').textContent = runes[newColor];
+        n.el.style.transform = 'scale(1)';
+      }, 220);
+    });
+
+    this.clearChainState();
     this.renderHeader();
     this.renderResonance();
     this.updateUpgradesAvailability();
   }
 
-  dealDamage(amount, isCrit, clientX, clientY) {
+  // ================= BOSS COMBAT & COUNTDOWN =================
+  startBossTimer() {
+    clearInterval(this.bossTimerInterval);
+    this.bossTimerInterval = setInterval(() => {
+      if (document.hidden) return;
+      this.state.bossAttackTimer -= 0.1;
+
+      if (this.state.bossAttackTimer <= 2.0 && this.state.bossAttackTimer > 1.8) {
+        soundEngine.playWarningDrone();
+      }
+
+      if (this.state.bossAttackTimer <= 0) {
+        this.triggerBossOblivionWave();
+        this.state.bossAttackTimer = this.state.bossAttackMax;
+      }
+
+      this.renderBoss();
+      this.updateSkillCooldowns();
+    }, 100);
+  }
+
+  // Boss attack penalty when countdown reaches 0
+  triggerBossOblivionWave() {
+    soundEngine.playHitSound(true);
+
+    // Screen Shake & Distortion
+    const arena = this.dom.constellationArena;
+    arena.style.animation = 'shake 0.4s both';
+    setTimeout(() => arena.style.animation = '', 400);
+
+    // Penalty: boss absorbs a portion of player's memory shards and resonance
+    const lostShards = Math.min(this.state.memoryShards, Math.round(15 + this.state.depth * 8));
+    this.state.memoryShards -= lostShards;
+    this.state.resonance = Math.max(0, this.state.resonance - 25);
+
+    // Show warning damage pop
+    const rect = this.dom.bossAvatar.getBoundingClientRect();
+    this.showDamagePop(`忘却波: -${lostShards}💎`, true, rect.left + rect.width / 2, rect.top + rect.height / 2, true);
+
+    this.renderHeader();
+    this.renderResonance();
+  }
+
+  dealDamage(amount, isCrit, clientX, clientY, isSupernova = false) {
     this.state.bossHp = Math.max(0, this.state.bossHp - amount);
     soundEngine.playHitSound(isCrit);
 
-    // Hit reaction on boss avatar
-    const bossCard = document.querySelector('.boss-card');
-    if (bossCard) {
-      bossCard.classList.remove('hit');
-      void bossCard.offsetWidth; // trigger reflow
-      bossCard.classList.add('hit');
-      setTimeout(() => bossCard.classList.remove('hit'), 200);
+    // Shake boss card
+    const card = document.getElementById('boss-card');
+    if (card) {
+      card.classList.remove('hit');
+      void card.offsetWidth;
+      card.classList.add('hit');
+      setTimeout(() => card.classList.remove('hit'), 250);
     }
 
-    // Floating text
-    this.showDamagePop(amount, isCrit, clientX, clientY);
+    this.showDamagePop(amount, isCrit, clientX, clientY, isSupernova);
     this.renderBoss();
 
-    // Check boss defeat / Transcendence
     if (this.state.bossHp <= 0) {
       this.handleBossDefeat();
     }
   }
 
-  showDamagePop(amount, isCrit, x, y) {
+  showDamagePop(text, isCrit, x, y, isSupernova = false) {
     const pop = document.createElement('div');
-    pop.className = `damage-pop ${isCrit ? 'crit' : ''}`;
-    pop.textContent = isCrit ? `CRIT! -${amount}` : `-${amount}`;
-    pop.style.left = `${x - 20 + (Math.random() * 30 - 15)}px`;
-    pop.style.top = `${y - 30}px`;
+    pop.className = `damage-pop ${isCrit ? 'crit' : ''} ${isSupernova ? 'supernova' : ''}`;
+    pop.textContent = typeof text === 'number' ? (isSupernova ? `SUPERNOVA! -${text}` : (isCrit ? `CRIT! -${text}` : `-${text}`)) : text;
+    pop.style.left = `${x - 30 + (Math.random() * 40 - 20)}px`;
+    pop.style.top = `${y - 40}px`;
 
     this.dom.floatLayer.appendChild(pop);
     setTimeout(() => pop.remove(), 900);
   }
 
-  // Passive damage & cooldown tick
-  startPassiveLoop() {
-    this.passiveDamageTimer = setInterval(() => {
-      if (document.hidden) return;
-      const stats = this.state.calcStats();
-      if (stats.auto > 0 && this.state.bossHp > 0) {
-        this.state.bossHp = Math.max(0, this.state.bossHp - stats.auto);
-        this.renderBoss();
-        if (this.state.bossHp <= 0) {
-          this.handleBossDefeat();
-        }
-      }
-      this.updateSkillCooldowns();
-    }, 1000);
-  }
-
-  // Skills Implementation
+  // ================= SKILLS & CUT-IN =================
   useSkillReversal() {
     const now = Date.now();
     const sk = this.state.skills.reversal;
@@ -372,7 +567,16 @@ class EphemereGame {
 
     soundEngine.playGlassTone(880, 0.1, 0.8);
     this.dom.skillReversal.classList.add('active');
-    setTimeout(() => this.dom.skillReversal.classList.remove('active'), 6000);
+
+    // Make all nodes glow gold visually during skill
+    this.nodes.forEach(n => {
+      n.el.style.filter = 'hue-rotate(90deg) brightness(1.3)';
+    });
+
+    setTimeout(() => {
+      this.dom.skillReversal.classList.remove('active');
+      this.nodes.forEach(n => n.el.style.filter = '');
+    }, 6000);
 
     this.updateSkillCooldowns();
   }
@@ -385,13 +589,21 @@ class EphemereGame {
     sk.lastUsed = now;
     soundEngine.playGlassTone(1200, 0.12, 1.2);
 
-    // Pop all orbs on the screen simultaneously!
-    const orbs = Array.from(document.querySelectorAll('.ephemera-orb'));
-    orbs.forEach((orb, idx) => {
+    // Re-shuffle all colors to optimize clusters
+    const colors = ['cyan', 'purple', 'gold', 'emerald'];
+    const runes = { cyan: '✧', purple: '✦', gold: '✹', emerald: '❖' };
+
+    this.nodes.forEach((n, idx) => {
+      n.el.style.transform = 'scale(0) rotate(180deg)';
       setTimeout(() => {
-        const rect = orb.getBoundingClientRect();
-        this.handleOrbPop(orb, 'gold', rect.left + rect.width / 2, rect.top + rect.height / 2);
-      }, idx * 60);
+        // Group columns into same colors for easy huge chains
+        const newColor = colors[n.col % colors.length];
+        n.color = newColor;
+        n.el.className = `stellar-node color-${newColor}`;
+        n.el.dataset.color = newColor;
+        n.el.querySelector('.node-rune').textContent = runes[newColor];
+        n.el.style.transform = 'scale(1) rotate(0deg)';
+      }, idx * 15);
     });
 
     this.updateSkillCooldowns();
@@ -404,75 +616,72 @@ class EphemereGame {
 
     soundEngine.playBurstFanfare();
 
-    // Epic Burst Damage: 40% of Boss Max HP
-    const stats = this.state.calcStats();
-    let burstDmg = Math.round(this.state.bossMaxHp * 0.4);
-    if (this.state.relics[3].unlocked) { // mirror buff
-      burstDmg *= 2;
-    }
+    // Trigger Super Anime Cut-In Layer
+    this.dom.cutinLayer.classList.remove('hidden');
+    setTimeout(() => {
+      this.dom.cutinLayer.classList.add('hidden');
+    }, 1800);
+
+    // Massive Burst Damage: 50% of Boss Max HP
+    let burstDmg = Math.round(this.state.bossMaxHp * 0.5);
+    if (this.state.relics[3].unlocked) burstDmg *= 2; // mirror buff
 
     const rect = this.dom.bossAvatar.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
 
-    this.dealDamage(burstDmg, true, cx, cy);
+    this.dealDamage(burstDmg, true, cx, cy, true);
 
-    // Confetti celebration
     confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.3 },
-      colors: ['#38bdf8', '#c084fc', '#fde047']
+      particleCount: 120,
+      spread: 80,
+      origin: { y: 0.35 },
+      colors: ['#38bdf8', '#c084fc', '#fde047', '#2dd4bf']
     });
 
     if (this.visualizer) {
-      this.visualizer.createBurst(cx, cy, '#fde047', 60);
+      this.visualizer.createBurst(cx, cy, '#fde047', 70);
     }
   }
 
   updateSkillCooldowns() {
     const now = Date.now();
-    // Reversal CD
     const rev = this.state.skills.reversal;
     const revPassed = now - rev.lastUsed;
     if (revPassed < rev.cd) {
-      const pct = 100 - (revPassed / rev.cd) * 100;
-      this.dom.skillReversalCd.style.height = `${pct}%`;
+      this.dom.skillReversalCd.style.height = `${100 - (revPassed / rev.cd) * 100}%`;
       this.dom.skillReversal.disabled = true;
     } else {
       this.dom.skillReversalCd.style.height = '0%';
       this.dom.skillReversal.disabled = false;
     }
 
-    // Crystallize CD
     const cry = this.state.skills.crystallize;
     const cryPassed = now - cry.lastUsed;
     if (cryPassed < cry.cd) {
-      const pct = 100 - (cryPassed / cry.cd) * 100;
-      this.dom.skillCrystallizeCd.style.height = `${pct}%`;
+      this.dom.skillCrystallizeCd.style.height = `${100 - (cryPassed / cry.cd) * 100}%`;
       this.dom.skillCrystallize.disabled = true;
     } else {
       this.dom.skillCrystallizeCd.style.height = '0%';
       this.dom.skillCrystallize.disabled = false;
     }
 
-    // Burst Button State
     this.dom.skillBurst.disabled = (this.state.resonance < this.state.resonanceMax);
   }
 
+  // ================= BOSS DEFEAT & PROGRESSION =================
   handleBossDefeat() {
     const bossData = this.state.bosses[(this.state.depth - 1) % this.state.bosses.length];
     const reward = Math.round(bossData.reward * Math.pow(1.3, this.state.depth - 1));
     this.state.memoryShards += reward;
 
     confetti({
-      particleCount: 100,
+      particleCount: 120,
       spread: 90,
       origin: { y: 0.4 },
-      colors: ['#38bdf8', '#a855f7', '#fbbf24']
+      colors: ['#38bdf8', '#a855f7', '#fbbf24', '#2dd4bf']
     });
 
-    // Check unlocks
     this.state.relics.forEach(r => {
       if (r.reqDepth && this.state.depth + 1 >= r.reqDepth) {
         r.unlocked = true;
@@ -487,9 +696,8 @@ class EphemereGame {
 
     this.state.save();
 
-    // Show Victory Modal
-    this.dom.victoryTitle.textContent = `調律完了：深度 ${this.state.depth}m`;
-    this.dom.victoryDesc.textContent = `「${bossData.name}」の残響は光の雨となり、あなたの魂に新たな祈りを遺しました。`;
+    this.dom.victoryTitle.textContent = `星脈調律完了：深度 ${this.state.depth}m`;
+    this.dom.victoryDesc.textContent = `「${bossData.name}」の忘却は解かれ、光の記憶となって心に宿りました。`;
     this.dom.victoryReward.textContent = `+${reward} 💎 記憶の雫`;
     this.dom.victoryModal.classList.remove('hidden');
   }
@@ -505,13 +713,13 @@ class EphemereGame {
     this.renderBoss();
     this.renderRelics();
     this.renderLore();
+    this.initConstellationGrid();
 
-    // Show special narrative on key depths
     if (this.state.depth === 2) {
       this.showStoryModal(
         '薄暗がりの声',
         '/assets/character_echo.png',
-        '「お前もまた、消えゆく記憶の幻影を追う者か……。立ち去れ、この先は永遠の沈黙が満ちている」'
+        '「お前もまた、消えゆく記憶の星脈を追う者か……。この先は永遠の沈黙が満ちている」'
       );
     } else if (this.state.depth === 3) {
       this.showStoryModal(
@@ -529,6 +737,7 @@ class EphemereGame {
     this.dom.storyModal.classList.remove('hidden');
   }
 
+  // ================= UI RENDERING =================
   renderHeader() {
     this.dom.shardsCount.textContent = this.state.memoryShards.toLocaleString();
     this.dom.spiritLevel.textContent = `Lv.${this.state.spiritLevel}`;
@@ -542,8 +751,13 @@ class EphemereGame {
     this.dom.currentDepth.textContent = `深度: ${this.state.depth}.0m`;
 
     this.dom.bossHpText.textContent = `${Math.ceil(this.state.bossHp).toLocaleString()} / ${this.state.bossMaxHp.toLocaleString()}`;
-    const pct = Math.max(0, Math.min(100, (this.state.bossHp / this.state.bossMaxHp) * 100));
-    this.dom.bossHpFill.style.width = `${pct}%`;
+    const hpPct = Math.max(0, Math.min(100, (this.state.bossHp / this.state.bossMaxHp) * 100));
+    this.dom.bossHpFill.style.width = `${hpPct}%`;
+
+    // Boss Attack Timer Bar
+    this.dom.bossAttackTimer.textContent = `${Math.max(0, this.state.bossAttackTimer).toFixed(1)}s`;
+    const attackPct = Math.max(0, Math.min(100, (1 - this.state.bossAttackTimer / this.state.bossAttackMax) * 100));
+    this.dom.bossAttackFill.style.width = `${attackPct}%`;
   }
 
   renderResonance() {
@@ -576,8 +790,7 @@ class EphemereGame {
         </button>
       `;
 
-      const btn = card.querySelector('.btn-buy-upgrade');
-      btn.addEventListener('click', () => this.buyUpgrade(upg.id));
+      card.querySelector('.btn-buy-upgrade').addEventListener('click', () => this.buyUpgrade(upg.id));
       list.appendChild(card);
     }
     this.updateUpgradesAvailability();
@@ -587,9 +800,7 @@ class EphemereGame {
     for (let key in this.state.upgrades) {
       const upg = this.state.upgrades[key];
       const btn = document.querySelector(`.btn-buy-upgrade[data-id="${upg.id}"]`);
-      if (btn) {
-        btn.disabled = this.state.memoryShards < upg.cost;
-      }
+      if (btn) btn.disabled = this.state.memoryShards < upg.cost;
     }
   }
 
