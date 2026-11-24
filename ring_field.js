@@ -94,6 +94,11 @@ export class RingFieldEngine {
     el.addEventListener('pointermove', (e) => this.handlePointerMove(e));
     window.addEventListener('pointerup', () => this.handlePointerUp());
     window.addEventListener('pointercancel', () => this.handlePointerUp());
+
+    // Mouse fallback explicitly for PC browsers
+    el.addEventListener('mousedown', (e) => this.handlePointerDown(e));
+    el.addEventListener('mousemove', (e) => this.handlePointerMove(e));
+    window.addEventListener('mouseup', () => this.handlePointerUp());
   }
 
   // Haptic Feedback for Mobile Touch Vibration
@@ -169,7 +174,11 @@ export class RingFieldEngine {
     this.isDragging = false;
 
     const count = this.activeChain.length;
-    if (count >= 3 || (this.isRingClosed && count >= 4)) {
+    // 2 or more nodes is a valid link! (Or 1 single tap fallback attack)
+    if (count >= 2 || (this.isRingClosed && count >= 3)) {
+      this.resolveChain();
+    } else if (count === 1) {
+      // Tap on a single node deals a quick tap attack so the game is always instantly responsive
       this.resolveChain();
     } else {
       this.activeChain = [];
@@ -179,24 +188,26 @@ export class RingFieldEngine {
   }
 
   canLinkNodes(n1, n2) {
-    // 1. Core links with anything on the inner ring
+    // 1. Core links with anything on the inner ring (or ring 1 if close)
     if (n1.isCore || n2.isCore) {
       const nonCore = n1.isCore ? n2 : n1;
-      return nonCore.ringIdx === 0;
+      return nonCore.ringIdx <= 1;
     }
 
-    // 2. Nodes in the same ring: must be angular neighbors
+    // 2. Nodes in the same ring: must be nearby along the orbit
     if (n1.ringIdx === n2.ringIdx) {
       const ringDef = this.ringDefs[n1.ringIdx];
       const angleDiff = Math.abs(this.normalizeAngle(n1.angle - n2.angle));
       const step = (Math.PI * 2) / ringDef.count;
-      return Math.abs(angleDiff - step) < 0.45 || Math.abs(angleDiff - (Math.PI * 2 - step)) < 0.45;
+      return angleDiff <= step * 1.5;
     }
 
-    // 3. Radial beam: adjacent rings with similar angular direction
-    if (Math.abs(n1.ringIdx - n2.ringIdx) === 1) {
+    // 3. Adjacent rings (or within 1 ring jump): check distance or angular alignment
+    if (Math.abs(n1.ringIdx - n2.ringIdx) <= 1) {
       const angleDiff = Math.abs(this.normalizeAngle(n1.angle - n2.angle));
-      return angleDiff < 0.65; // Forgiving ray tolerance for smooth linking
+      // Angular similarity OR physical proximity
+      const dist = Math.hypot(n1.x - n2.x, n1.y - n2.y);
+      return angleDiff < 0.95 || dist < this.maxRadius * 0.45;
     }
 
     return false;
@@ -208,7 +219,7 @@ export class RingFieldEngine {
     return angle;
   }
 
-  findNearestNode(x, y, maxDist = 48) {
+  findNearestNode(x, y, maxDist = 58) {
     let best = null;
     let minD = maxDist;
     for (const n of this.nodes) {
