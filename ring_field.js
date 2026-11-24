@@ -47,7 +47,7 @@ export class RingFieldEngine {
     const rect = this.canvas.parentElement.getBoundingClientRect();
     this.width = this.canvas.width = rect.width;
     this.height = this.canvas.height = rect.height;
-    this.center = { x: this.width / 2, y: this.height / 2 - 15 };
+    this.center = { x: this.width / 2, y: this.height / 2 };
     this.maxRadius = Math.min(this.width, this.height) * 0.44;
   }
 
