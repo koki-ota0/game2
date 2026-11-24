@@ -31,6 +31,8 @@ class EphemereGame {
     // Mount Concentric Astral Dial Field
     const dialCanvas = document.getElementById('dial-canvas');
     const astralArena = document.getElementById('astral-arena');
+    const battleStage = document.getElementById('battle-stage');
+
     if (dialCanvas && astralArena) {
       this.ringEngine = new RingFieldEngine(
         dialCanvas,
@@ -39,10 +41,30 @@ class EphemereGame {
         (count, isClosed, color) => this.handleRingComboStep(count, isClosed, color)
       );
 
-      // Mount Animated 2D Lapis Companion
-      this.companion = new LapisCompanion(astralArena, () => {
-        soundEngine.playVoice('voice_greeting');
-      });
+      // Mount Animated Lapis Companion in the Top Battle Stage Arena
+      const companionMount = document.getElementById('lapis-companion');
+      if (companionMount) {
+        companionMount.addEventListener('click', (e) => {
+          e.stopPropagation();
+          soundEngine.playVoice('voice_greeting');
+          const quotes = [
+            '「旅人さんの指先、とても温かいです……」',
+            '「私、ずっとあなたの隣で星を見ていたいです」',
+            '「環（ループ）を閉じると、日蝕の力で時間を巻き戻せますよ」',
+            '「世界が消えても、この記憶だけは……！」'
+          ];
+          const speech = document.getElementById('lapis-speech');
+          if (speech) {
+            speech.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+            speech.classList.add('visible');
+            companionMount.classList.add('blush');
+            setTimeout(() => {
+              speech.classList.remove('visible');
+              companionMount.classList.remove('blush');
+            }, 3000);
+          }
+        });
+      }
     }
 
     // Setup ambient background visualizer
@@ -182,17 +204,35 @@ class EphemereGame {
     if (count > 1) {
       this.dom.chainIndicator.classList.add('visible');
       this.dom.chainCount.textContent = count;
+      const lapis = document.getElementById('lapis-companion');
+      const speech = document.getElementById('lapis-speech');
+
       if (isClosed) {
         this.dom.loopBadge.classList.add('active');
-        if (this.companion) this.companion.triggerReaction('super');
+        if (lapis && speech) {
+          lapis.classList.add('jump');
+          speech.textContent = '「すごいです！日蝕の環が閉じました！」';
+          speech.classList.add('visible');
+          setTimeout(() => {
+            lapis.classList.remove('jump');
+            speech.classList.remove('visible');
+          }, 2500);
+        }
       } else {
         this.dom.loopBadge.classList.remove('active');
       }
 
-      // Haptic feedback & Companion voice on high chain
       if (count === 6 && !isClosed) {
         soundEngine.playVoice('voice_link');
-        if (this.companion) this.companion.triggerReaction('cheer');
+        if (lapis && speech) {
+          lapis.classList.add('jump');
+          speech.textContent = '「星脈、繋がって……！お願い！」';
+          speech.classList.add('visible');
+          setTimeout(() => {
+            lapis.classList.remove('jump');
+            speech.classList.remove('visible');
+          }, 2500);
+        }
       }
     } else {
       this.dom.chainIndicator.classList.remove('visible');
@@ -282,12 +322,12 @@ class EphemereGame {
     this.state.bossHp = Math.max(0, this.state.bossHp - amount);
     soundEngine.playHitSound(isCrit);
 
-    const card = document.getElementById('boss-card');
-    if (card) {
-      card.classList.remove('hit');
-      void card.offsetWidth;
-      card.classList.add('hit');
-      setTimeout(() => card.classList.remove('hit'), 250);
+    const bossEntity = document.getElementById('boss-entity');
+    if (bossEntity) {
+      bossEntity.classList.remove('hit');
+      void bossEntity.offsetWidth;
+      bossEntity.classList.add('hit');
+      setTimeout(() => bossEntity.classList.remove('hit'), 300);
     }
 
     this.showDamagePop(amount, isCrit, clientX, clientY, isSupernova);
