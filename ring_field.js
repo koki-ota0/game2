@@ -177,13 +177,13 @@ export class RingFieldEngine {
       const ringDef = this.ringDefs[n1.ringIdx];
       const angleDiff = Math.abs(this.normalizeAngle(n1.angle - n2.angle));
       const step = (Math.PI * 2) / ringDef.count;
-      return Math.abs(angleDiff - step) < 0.25 || Math.abs(angleDiff - (Math.PI * 2 - step)) < 0.25;
+      return Math.abs(angleDiff - step) < 0.45 || Math.abs(angleDiff - (Math.PI * 2 - step)) < 0.45;
     }
 
     // 3. Radial beam: adjacent rings with similar angular direction
     if (Math.abs(n1.ringIdx - n2.ringIdx) === 1) {
       const angleDiff = Math.abs(this.normalizeAngle(n1.angle - n2.angle));
-      return angleDiff < 0.45; // ray alignment
+      return angleDiff < 0.65; // Forgiving ray tolerance for smooth linking
     }
 
     return false;
@@ -195,7 +195,7 @@ export class RingFieldEngine {
     return angle;
   }
 
-  findNearestNode(x, y, maxDist = 30) {
+  findNearestNode(x, y, maxDist = 48) {
     let best = null;
     let minD = maxDist;
     for (const n of this.nodes) {

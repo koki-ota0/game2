@@ -409,6 +409,109 @@ body {
   box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
 }
 
+/* LIVE 2D COMPANION SPRITE */
+#lapis-live-companion {
+  position: absolute;
+  bottom: 58px;
+  right: -8px;
+  width: 140px;
+  height: 220px;
+  pointer-events: auto;
+  z-index: 15;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.companion-figure-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: bottom center;
+  transition: transform 0.15s ease-out;
+  animation: companionFloat 4s ease-in-out infinite alternate;
+}
+
+.companion-figure-wrap.jump {
+  animation: companionJump 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.companion-figure-wrap.shake {
+  animation: shake 0.35s both;
+}
+
+.companion-figure-wrap.blush img {
+  filter: drop-shadow(0 0 16px rgba(244, 63, 94, 0.8)) brightness(1.15);
+}
+
+.companion-body {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 12px rgba(56, 189, 248, 0.4));
+  pointer-events: none;
+}
+
+.companion-aura {
+  position: absolute;
+  inset: 15% 15% 0 15%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+  animation: pulse 3s infinite;
+}
+
+.companion-speech-bubble {
+  position: absolute;
+  bottom: 105%;
+  right: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(147, 197, 253, 0.4);
+  color: #f1f5f9;
+  font-size: 10px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6), 0 0 10px rgba(56, 189, 248, 0.2);
+  max-width: 160px;
+  white-space: normal;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 20;
+}
+
+.companion-speech-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 35px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(15, 23, 42, 0.92) transparent transparent transparent;
+}
+
+.companion-speech-bubble.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes companionFloat {
+  0% { transform: translateY(0px) rotate(0deg); }
+  100% { transform: translateY(-8px) rotate(1.5deg); }
+}
+
+@keyframes companionJump {
+  0% { transform: scale(1) translateY(0); }
+  40% { transform: scale(1.12) translateY(-22px) rotate(-3deg); }
+  80% { transform: scale(0.95) translateY(2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
 /* CONCENTRIC ASTRAL DIAL ARENA */
 .astral-dial-arena {
   position: relative;

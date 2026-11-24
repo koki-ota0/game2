@@ -3,6 +3,7 @@ import { soundEngine } from './sound.js';
 import { AmbientVisualizer } from './ambient.js';
 import { GameRecorder } from './recorder.js';
 import { RingFieldEngine } from './ring_field.js';
+import { LapisCompanion } from './companion.js';
 import confetti from 'canvas-confetti';
 
 class EphemereGame {
@@ -11,6 +12,7 @@ class EphemereGame {
     this.visualizer = null;
     this.recorder = null;
     this.ringEngine = null;
+    this.companion = null;
     this.dom = {};
 
     this.bossTimerInterval = null;
@@ -36,6 +38,11 @@ class EphemereGame {
         (result) => this.handleRingChainResolved(result),
         (count, isClosed, color) => this.handleRingComboStep(count, isClosed, color)
       );
+
+      // Mount Animated 2D Lapis Companion
+      this.companion = new LapisCompanion(astralArena, () => {
+        soundEngine.playVoice('voice_greeting');
+      });
     }
 
     // Setup ambient background visualizer
@@ -169,8 +176,15 @@ class EphemereGame {
       this.dom.chainCount.textContent = count;
       if (isClosed) {
         this.dom.loopBadge.classList.add('active');
+        if (this.companion) this.companion.triggerReaction('super');
       } else {
         this.dom.loopBadge.classList.remove('active');
+      }
+
+      // Haptic feedback & Companion voice on high chain
+      if (count === 6 && !isClosed) {
+        soundEngine.playVoice('voice_link');
+        if (this.companion) this.companion.triggerReaction('cheer');
       }
     } else {
       this.dom.chainIndicator.classList.remove('visible');
@@ -186,6 +200,7 @@ class EphemereGame {
       damage *= stats.loopPow;
       shardReward *= 2.5;
       this.state.bossAttackTimer = Math.min(this.state.bossAttackMax, this.state.bossAttackTimer + 4.5);
+      soundEngine.playVoice('voice_eclipse');
     }
 
     damage = Math.round(damage);
@@ -235,6 +250,8 @@ class EphemereGame {
 
   triggerBossOblivionWave() {
     soundEngine.playHitSound(true);
+    soundEngine.playVoice('voice_hit');
+    if (this.companion) this.companion.triggerReaction('hit');
 
     const arena = document.getElementById('astral-arena');
     if (arena) {
@@ -325,6 +342,8 @@ class EphemereGame {
     this.renderResonance();
 
     soundEngine.playBurstFanfare();
+    soundEngine.playVoice('voice_burst');
+    if (this.companion) this.companion.triggerReaction('super');
 
     this.dom.cutinLayer.classList.remove('hidden');
     setTimeout(() => {
