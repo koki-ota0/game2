@@ -145,18 +145,52 @@ class EphemereGame {
   }
 
   bindEvents() {
-    document.querySelectorAll('.nav-item').forEach(button => {
-      button.addEventListener('click', () => {
-        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-screen').forEach(t => t.classList.remove('active'));
-        button.classList.add('active');
-        const tabId = button.getAttribute('data-tab');
-        const screen = document.getElementById(tabId);
-        if (screen) screen.classList.add('active');
+    // Menu Sheet Navigation (Modal overlays, Zero layout jump)
+    const sheets = {
+      'btn-open-transcendence': 'sheet-transcendence',
+      'btn-open-resonance': 'sheet-resonance',
+      'btn-open-relics': 'sheet-relics'
+    };
+
+    for (let btnId in sheets) {
+      const btn = document.getElementById(btnId);
+      const sheetId = sheets[btnId];
+      if (btn) {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.menu-action-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.querySelectorAll('.app-modal-sheet').forEach(s => s.classList.add('hidden'));
+          const target = document.getElementById(sheetId);
+          if (target) {
+            target.classList.remove('hidden');
+            if (sheetId === 'sheet-transcendence') this.renderTranscendence();
+            else if (sheetId === 'sheet-resonance') this.renderUpgrades();
+            else if (sheetId === 'sheet-relics') this.renderRelics();
+          }
+          soundEngine.init();
+        });
+      }
+    }
+
+    // Return to Battle Deck Button
+    const btnBattle = document.getElementById('btn-tab-battle');
+    if (btnBattle) {
+      btnBattle.addEventListener('click', () => {
+        document.querySelectorAll('.menu-action-btn').forEach(b => b.classList.remove('active'));
+        btnBattle.classList.add('active');
+        document.querySelectorAll('.app-modal-sheet').forEach(s => s.classList.add('hidden'));
         soundEngine.init();
-        if (tabId === 'tab-transcendence') {
-          this.renderTranscendence();
-        }
+      });
+    }
+
+    // Close buttons on all sheets
+    document.querySelectorAll('.btn-close-sheet').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sheetId = btn.getAttribute('data-sheet');
+        const sheet = document.getElementById(sheetId);
+        if (sheet) sheet.classList.add('hidden');
+        document.querySelectorAll('.menu-action-btn').forEach(b => b.classList.remove('active'));
+        if (btnBattle) btnBattle.classList.add('active');
       });
     });
 
@@ -190,7 +224,8 @@ class EphemereGame {
         this.renderBoss();
         this.renderTranscendence();
         this.renderUpgrades();
-        document.querySelector('[data-tab="tab-battle"]').click();
+        document.getElementById('sheet-transcendence').classList.add('hidden');
+        document.getElementById('btn-tab-battle').click();
       }
     });
 
