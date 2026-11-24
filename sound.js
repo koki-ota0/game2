@@ -126,6 +126,18 @@ class SoundEngine {
     osc.stop(now + duration + 0.1);
   }
 
+  // Sound Effect: Voice Clip Player with Caching
+  playVoice(name) {
+    if (!this.enabled) return;
+    try {
+      const audio = new Audio(`/assets/audio/${name}.mp3`);
+      audio.volume = 0.85;
+      audio.play().catch(e => console.warn('Audio play prevented:', e));
+    } catch (e) {
+      console.warn('Voice play failed:', e);
+    }
+  }
+
   // Harmonic Node Link: Played when player drags a line connecting memory nodes
   playNodeLink(nodeIndex, chainLength = 1) {
     if (!this.ctx || !this.enabled) return;
