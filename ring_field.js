@@ -271,8 +271,10 @@ export class RingFieldEngine {
 
   renderOrbits() {
     this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(147, 197, 253, 0.12)';
-    this.ctx.lineWidth = 1.5;
+    this.ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+    this.ctx.lineWidth = 1.6;
+    this.ctx.shadowBlur = 10;
+    this.ctx.shadowColor = 'rgba(56, 189, 248, 0.4)';
     this.ctx.setLineDash([4, 6]);
 
     this.ringDefs.forEach(r => {
@@ -282,9 +284,12 @@ export class RingFieldEngine {
       this.ctx.stroke();
     });
 
-    // Radial guide lines
+    // Cyber Data Bus Lines (Ray Alignment)
     for (let i = 0; i < 8; i++) {
       const rad = (i / 8) * Math.PI * 2;
+      this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.18)';
+      this.ctx.lineWidth = 1.0;
+      this.ctx.setLineDash([2, 4]);
       this.ctx.beginPath();
       this.ctx.moveTo(this.center.x, this.center.y);
       this.ctx.lineTo(this.center.x + Math.cos(rad) * this.maxRadius * 0.72,

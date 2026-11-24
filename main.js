@@ -58,6 +58,14 @@ class EphemereGame {
     // Boss Countdown Loop
     this.startBossTimer();
 
+    this.cutinLayer = document.getElementById('cutin-layer');
+    if (this.cutinLayer) {
+      const cutinImg = this.cutinLayer.querySelector('img');
+      if (cutinImg) {
+        cutinImg.src = '/assets/lapis_cyber_burst.png';
+      }
+    }
+
     // Initial Story modal
     if (this.state.depth === 1 && this.state.memoryShards === 0) {
       this.showStoryModal(
