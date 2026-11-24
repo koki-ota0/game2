@@ -105,7 +105,7 @@ class EphemereGame {
       bossName: document.getElementById('boss-name'),
       bossTitle: document.getElementById('boss-title'),
       currentDepth: document.getElementById('current-depth'),
-      bossAvatar: document.getElementById('boss-avatar'),
+      bossAvatar: document.getElementById('boss-standing-img'),
       bossHpText: document.getElementById('boss-hp-text'),
       bossHpFill: document.getElementById('boss-hp-fill'),
       bossAttackTimer: document.getElementById('boss-attack-timer'),
@@ -245,8 +245,8 @@ class EphemereGame {
 
   handleRingChainResolved({ count, isClosed, color, nodes }) {
     const stats = this.state.calcStats();
-    let damage = stats.baseDmg * count * Math.pow(stats.chainPow, count - 1);
-    let shardReward = Math.round(count * 3.0 * stats.shardMult);
+    let damage = stats.baseDmg * count * Math.pow(stats.chainPow, Math.max(0, count - 1));
+    let shardReward = Math.max(1, Math.round(count * 3.0 * stats.shardMult));
 
     if (isClosed) {
       damage *= stats.loopPow;
@@ -255,7 +255,7 @@ class EphemereGame {
       soundEngine.playVoice('voice_eclipse');
     }
 
-    damage = Math.round(damage);
+    damage = Math.max(1, Math.round(damage));
     shardReward = Math.round(shardReward);
 
     const resAdd = (count * 5 + (isClosed ? 20 : 0)) * (1 + (this.state.upgrades.tapPower.lvl - 1) * 0.1);
@@ -263,7 +263,7 @@ class EphemereGame {
 
     this.state.memoryShards += shardReward;
 
-    const midNode = nodes[Math.floor(nodes.length / 2)];
+    const midNode = nodes && nodes.length > 0 ? nodes[Math.floor(nodes.length / 2)] : { x: 100, y: 100 };
     const arenaRect = document.getElementById('astral-arena').getBoundingClientRect();
     this.dealDamage(damage, isClosed, arenaRect.left + midNode.x, arenaRect.top + midNode.y, isClosed);
 
