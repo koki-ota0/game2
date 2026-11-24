@@ -96,6 +96,15 @@ export class RingFieldEngine {
     window.addEventListener('pointercancel', () => this.handlePointerUp());
   }
 
+  // Haptic Feedback for Mobile Touch Vibration
+  triggerHaptic(type = 'light') {
+    if (navigator.vibrate) {
+      if (type === 'light') navigator.vibrate(12);
+      else if (type === 'medium') navigator.vibrate(28);
+      else if (type === 'heavy') navigator.vibrate([40, 30, 60]);
+    }
+  }
+
   handlePointerDown(e) {
     soundEngine.init();
     soundEngine.startAmbientMusic();
@@ -104,7 +113,7 @@ export class RingFieldEngine {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const touched = this.findNearestNode(x, y, 32);
+    const touched = this.findNearestNode(x, y, 48);
     if (!touched) return;
 
     this.isDragging = true;
@@ -112,6 +121,7 @@ export class RingFieldEngine {
     this.currentColor = touched.color;
     this.isRingClosed = false;
 
+    this.triggerHaptic('light');
     soundEngine.playNodeLink(0, 1);
     if (this.onComboStep) this.onComboStep(1, false, touched.color);
   }
@@ -123,7 +133,7 @@ export class RingFieldEngine {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const hovered = this.findNearestNode(x, y, 30);
+    const hovered = this.findNearestNode(x, y, 46);
     if (hovered) {
       const last = this.activeChain[this.activeChain.length - 1];
 
@@ -131,12 +141,14 @@ export class RingFieldEngine {
       if (this.activeChain.length >= 2 && hovered === this.activeChain[this.activeChain.length - 2]) {
         this.activeChain.pop();
         this.isRingClosed = false;
+        this.triggerHaptic('light');
         soundEngine.playNodeLink(this.activeChain.length - 1, this.activeChain.length);
         if (this.onComboStep) this.onComboStep(this.activeChain.length, false, this.currentColor);
       }
       // Check Ring Orbit Close (Loop back to 1st node)
       else if (hovered === this.activeChain[0] && this.activeChain.length >= 4 && !this.isRingClosed) {
         this.isRingClosed = true;
+        this.triggerHaptic('heavy');
         soundEngine.playNodeLink(this.activeChain.length, this.activeChain.length + 3);
         if (this.onComboStep) this.onComboStep(this.activeChain.length, true, this.currentColor);
       }
@@ -144,6 +156,7 @@ export class RingFieldEngine {
       else if (!this.activeChain.includes(hovered) && this.canLinkNodes(last, hovered)) {
         if (hovered.color === this.currentColor || hovered.isCore || this.currentColor === 'all') {
           this.activeChain.push(hovered);
+          this.triggerHaptic('medium');
           soundEngine.playNodeLink(this.activeChain.length - 1, this.activeChain.length);
           if (this.onComboStep) this.onComboStep(this.activeChain.length, false, this.currentColor);
         }
@@ -354,6 +367,20 @@ export class RingFieldEngine {
       this.ctx.arc(n.x, n.y, isCore ? 4.5 : 2.5, 0, Math.PI * 2);
       this.ctx.fill();
 
+      // Distinct Rune Symbol on each node for crystal clear accessibility
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = 'bold 11px sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      const runeSymbols = {
+        cyan: '❄',      // Ice snowflake for Cyan
+        emerald: '✦',   // 4-point cross star for Emerald Green
+        gold: '✹',      // 8-point sunburst for Gold
+        purple: '▲'     // Triangle prism for Purple
+      };
+      const symbol = isCore ? 'Ω' : (runeSymbols[n.color] || '•');
+      this.ctx.fillText(symbol, n.x, n.y);
+
       // Selected Orbit Ring
       if (isSelected) {
         this.ctx.strokeStyle = '#ffffff';
@@ -369,11 +396,11 @@ export class RingFieldEngine {
 
   getColorHex(color) {
     const map = {
-      cyan: '#38bdf8',
-      purple: '#a855f7',
-      gold: '#fbbf24',
-      emerald: '#2dd4bf'
+      cyan: '#00e5ff',     // Electric Ice Cyan
+      emerald: '#10b981',  // True Emerald Bright Green
+      gold: '#fbbf24',     // Radiant Amber Gold
+      purple: '#c084fc'    // Deep Astral Purple
     };
-    return map[color] || '#38bdf8';
+    return map[color] || '#00e5ff';
   }
 }
