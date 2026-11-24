@@ -2,31 +2,39 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#050711" />
-    <title>EPHÉMÈRE - 泡沫の残響 (Echo of Ephemera)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#060919" />
+    <title>EPHÉMÈRE - 泡沫の残響 (Echo of Ephemera) | Web Edition</title>
     <link rel="icon" type="image/png" href="/assets/icon_app.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800;900&family=Noto+Serif+JP:wght@300;400;600;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Noto+Serif+JP:wght@300;400;600;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <div id="app-container">
-      <!-- Background Ambient Canvas for Stardust & Cosmic Glow -->
-      <canvas id="ambient-canvas"></canvas>
+    <!-- Full-screen Ambient Starlight Canvas -->
+    <canvas id="ambient-canvas"></canvas>
 
-      <!-- 1. TOP HEADER (44px) -->
+    <!-- Main Web Game Window (Desktop & Tablet Optimized) -->
+    <div id="web-game-wrapper">
+      
+      <!-- Top Navigation & Global Status Header -->
       <header id="game-header">
-        <div class="header-left">
+        <div class="header-brand">
+          <div class="brand-logo-glow">✦</div>
+          <div class="brand-text">
+            <h1 class="brand-title">EPHÉMÈRE</h1>
+            <span class="brand-sub">泡沫の残響 — Echo of Ephemera</span>
+          </div>
+        </div>
+
+        <div class="header-player-status">
           <div class="avatar-ring">
             <img id="player-avatar" src="/assets/character_lapis.png" alt="Lapis" />
             <span class="spirit-level" id="spirit-level">Lv.1</span>
           </div>
-          <div class="header-info">
-            <div class="title-sub">泡沫の巫女・ラピス</div>
+          <div class="player-meta">
+            <div class="player-name">泡沫の巫女・ラピス</div>
             <div class="shards-counter">
               <span class="shard-icon">💎</span>
               <span id="memory-shards-count">0</span>
@@ -34,131 +42,226 @@
             </div>
           </div>
         </div>
-        <div class="header-right">
-          <button id="btn-sound-toggle" class="glass-icon-btn" title="音響切替">
+
+        <div class="header-controls">
+          <button id="btn-sound-toggle" class="header-btn" title="音響切替">
             <span id="sound-icon">🔊</span>
+            <span class="btn-text">BGM/SE</span>
           </button>
-          <button id="btn-reset" class="glass-icon-btn" title="世界再構築 (リセット)">
+          <button id="btn-reset" class="header-btn" title="世界再構築 (リセット)">
             <span>⏳</span>
+            <span class="btn-text">リセット</span>
           </button>
         </div>
       </header>
 
-      <!-- 2. ONE-SCREEN COMPACT BATTLE ARENA (Fixed 100vh Layout, No Body Scrolling) -->
-      <div id="unified-screen-container">
+      <!-- 3-Column Desktop / Wide Web Battle Arena Layout -->
+      <main id="web-battle-workspace">
         
-        <!-- [TOP STAGE: BATTLE VISUAL ENCOUNTER] -->
-        <div class="battle-stage-arena" id="battle-stage">
-          <!-- Boss Full Standing Sprite -->
-          <div class="boss-entity-wrap" id="boss-entity">
-            <img id="boss-standing-img" src="/assets/boss_oblivion_cutout.png" alt="Boss Titan" />
-            <div class="boss-cast-aura" id="boss-aura"></div>
-          </div>
+        <!-- LEFT COLUMN: Character Companion & Story / Echo Lore (280px) -->
+        <aside class="workspace-column left-sidebar">
+          <div class="sidebar-panel companion-panel">
+            <div class="panel-header">
+              <span class="panel-icon">✧</span>
+              <h3>同行者 · 泡沫の巫女</h3>
+            </div>
+            
+            <div class="companion-display-box" id="lapis-companion">
+              <div class="lapis-dialogue-bubble" id="lapis-speech">
+                「旅人さん、一緒に星脈を紡ぎましょう……」
+              </div>
+              <img id="lapis-standing-img" src="/assets/lapis_cutout.png" alt="Maiden Lapis" />
+              <div class="lapis-aura-glow"></div>
+            </div>
 
-          <!-- Boss Floating HUD -->
-          <div class="boss-hud-overlay">
-            <div class="boss-hud-top">
-              <span class="boss-title-tag" id="boss-title">黄昏第1層 · 忘却の守護者</span>
-              <span class="boss-depth-tag" id="current-depth">深度: 1.0m</span>
-            </div>
-            <div class="boss-name-row">
-              <h2 class="boss-name" id="boss-name">忘却の巨神・オブリビオン</h2>
-              <span class="boss-hp-num" id="boss-hp-text">1,200 / 1,200</span>
-            </div>
-            <div class="boss-hp-track">
-              <div class="boss-hp-fill" id="boss-hp-fill" style="width: 100%;"></div>
-            </div>
-            <div class="boss-attack-row">
-              <span class="attack-warn-txt">巨神の忘却波 (崩壊)</span>
-              <span class="attack-time-txt" id="boss-attack-timer">9.0s</span>
-            </div>
-            <div class="attack-track">
-              <div class="attack-fill" id="boss-attack-fill" style="width: 0%;"></div>
+            <div class="companion-quote-bar">
+              <span class="quote-hint">※ラピスをクリックするとボイスと心象対話が聞けます</span>
             </div>
           </div>
 
-          <!-- Player Standing Sprite (Lapis) -->
-          <div class="lapis-standing-wrap" id="lapis-companion">
-            <div class="lapis-dialogue-bubble" id="lapis-speech">
-              「旅人さん、一緒に星脈を紡ぎましょう……」
+          <!-- Quick Story / Depth Lore Card -->
+          <div class="sidebar-panel lore-panel">
+            <div class="panel-header">
+              <span class="panel-icon">📖</span>
+              <h3>追憶の深淵記録</h3>
             </div>
-            <img id="lapis-standing-img" src="/assets/lapis_cutout.png" alt="Maiden Lapis" />
-            <div class="lapis-starlight-aura"></div>
-          </div>
-
-          <!-- Resonance Burst Badge -->
-          <div class="resonance-floating-badge">
-            <div class="res-badge-label">
-              <span>BURST</span>
-              <span id="resonance-pct">0%</span>
-            </div>
-            <div class="res-badge-track">
-              <div class="res-badge-fill" id="resonance-fill" style="width: 0%;"></div>
+            <div class="lore-body">
+              <p class="lore-text">世界が忘却の彼方へ消え去ろうとも、星脈の調律を続ける限り、あなたの記憶は永遠に輝き続けます。</p>
             </div>
           </div>
-        </div>
+        </aside>
 
-        <!-- [BOTTOM DECK: ASTRAL DIAL BOARD + INTEGRATED HUD] -->
-        <div class="puzzle-deck-area">
-          <!-- Hint Strip -->
-          <div class="puzzle-hint-strip">
-            <span class="pulse-icon">✧</span>
-            <span>同心円軌道をなぞり星脈を紡げ。輪を作ると「日蝕解放」</span>
-          </div>
+        <!-- CENTER COLUMN: Boss Encounter & Tactical Dial Field (Main Stage, flex: 1) -->
+        <section class="workspace-column center-stage">
+          
+          <!-- Top Encounter Stage: Confronting Oblivion Titan -->
+          <div class="boss-encounter-stage" id="battle-stage">
+            <!-- Boss Visual -->
+            <div class="boss-entity-wrap" id="boss-entity">
+              <img id="boss-standing-img" src="/assets/boss_oblivion_cutout.png" alt="Boss Titan" />
+              <div class="boss-cast-aura" id="boss-aura"></div>
+            </div>
 
-          <!-- Canvas Dial Board -->
-          <div class="astral-dial-board" id="astral-arena">
-            <canvas id="dial-canvas"></canvas>
+            <!-- Boss Status & Countdown Display -->
+            <div class="boss-status-console">
+              <div class="boss-console-header">
+                <div class="boss-title-badge" id="boss-title">黄昏第1層 · 忘却の守護者</div>
+                <div class="boss-depth-badge" id="current-depth">到達深度: 1.0m</div>
+              </div>
 
-            <!-- Active chain counter HUD -->
-            <div class="chain-indicator" id="chain-indicator">
-              <span class="chain-num" id="chain-count">0</span>
-              <span class="chain-label">ORBITAL RESONANCE</span>
-              <span class="loop-badge" id="loop-badge">🌌 軌道閉環 (COSMIC ECLIPSE!)</span>
+              <div class="boss-name-row">
+                <h2 class="boss-name" id="boss-name">忘却の巨神・オブリビオン</h2>
+                <span class="boss-hp-numbers" id="boss-hp-text">1,200 / 1,200</span>
+              </div>
+
+              <div class="boss-hp-meter">
+                <div class="boss-hp-fill" id="boss-hp-fill" style="width: 100%;"></div>
+              </div>
+
+              <div class="boss-attack-meter-row">
+                <div class="attack-label">
+                  <span class="warn-dot">⚠</span>
+                  <span class="attack-name">巨神の忘却波 (崩壊)</span>
+                </div>
+                <div class="attack-countdown" id="boss-attack-timer">9.0s</div>
+              </div>
+              <div class="boss-attack-meter">
+                <div class="attack-fill" id="boss-attack-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <!-- Ultimate Resonance Burst Widget -->
+            <div class="resonance-burst-console">
+              <div class="res-head">
+                <span class="res-title">RESONANCE BURST</span>
+                <span class="res-pct" id="resonance-pct">0%</span>
+              </div>
+              <div class="res-bar">
+                <div class="res-bar-fill" id="resonance-fill" style="width: 0%;"></div>
+              </div>
             </div>
           </div>
 
-          <!-- Skills Dock -->
-          <div class="skills-dock">
-            <button class="skill-btn" id="skill-reversal" title="刻の逆行: 6秒間、全星脈が同色共鳴">
-              <div class="skill-icon">⏳</div>
-              <div class="skill-name">刻の逆行</div>
-              <div class="skill-cd-mask" id="skill-reversal-cd"></div>
+          <!-- Bottom Tactical Astral Dial Field & Skills -->
+          <div class="dial-tactical-deck">
+            <!-- Instruction & Feedback Strip -->
+            <div class="deck-guide-bar">
+              <span class="guide-icon">✦</span>
+              <span class="guide-text">同心円の星軌道をマウスドラッグでなぞり星脈を紡げ。一周繋いで環を閉じると「日蝕解放（COSMIC ECLIPSE）」！</span>
+            </div>
+
+            <!-- Interactive Canvas Dial Arena -->
+            <div class="dial-canvas-arena" id="astral-arena">
+              <canvas id="dial-canvas"></canvas>
+
+              <!-- Dynamic Chain & Resonance Callout HUD -->
+              <div class="chain-indicator" id="chain-indicator">
+                <span class="chain-num" id="chain-count">0</span>
+                <span class="chain-label">ORBITAL RESONANCE</span>
+                <span class="loop-badge" id="loop-badge">🌌 軌道閉環 (COSMIC ECLIPSE!)</span>
+              </div>
+            </div>
+
+            <!-- Skills & Special Actions Dock -->
+            <div class="skills-action-deck">
+              <button class="web-skill-card" id="skill-reversal" title="刻の逆行: 6秒間、全星脈が同色共鳴">
+                <div class="skill-icon">⏳</div>
+                <div class="skill-info">
+                  <div class="skill-title">刻の逆行</div>
+                  <div class="skill-desc">全星脈同色共鳴 (6s)</div>
+                </div>
+                <div class="skill-cd-mask" id="skill-reversal-cd"></div>
+              </button>
+
+              <button class="web-skill-card" id="skill-align" title="天球調相: 外周と内周の軌道を強制同期">
+                <div class="skill-icon">🪐</div>
+                <div class="skill-info">
+                  <div class="skill-title">天球調相</div>
+                  <div class="skill-desc">内周・外周軌道強制同期</div>
+                </div>
+                <div class="skill-cd-mask" id="skill-crystallize-cd"></div>
+              </button>
+
+              <button class="web-skill-card special-burst" id="skill-burst" disabled title="儚き絶唱: 共鳴100%で発動する超美麗カットイン必殺技">
+                <div class="skill-icon">🌌</div>
+                <div class="skill-info">
+                  <div class="skill-title">儚き絶唱 (BURST)</div>
+                  <div class="skill-desc">超美麗カットイン必殺技</div>
+                </div>
+                <div class="skill-burst-shine"></div>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Ascension & Upgrades & Relics Panels (360px) -->
+        <aside class="workspace-column right-sidebar">
+          
+          <!-- Tab Switcher for Web Sidebar -->
+          <div class="sidebar-tabs">
+            <button class="tab-btn active" data-web-tab="tab-upgrades">
+              <span class="tab-icon">🔮</span> 記憶調律
             </button>
-            <button class="skill-btn" id="skill-align" title="天球調相: 外周と内周の軌道を強制同期">
-              <div class="skill-icon">🪐</div>
-              <div class="skill-name">天球調相</div>
-              <div class="skill-cd-mask" id="skill-crystallize-cd"></div>
+            <button class="tab-btn" data-web-tab="tab-transcendence">
+              <span class="tab-icon">⏳</span> 追憶昇華
             </button>
-            <button class="skill-btn special" id="skill-burst" disabled title="儚き絶唱: 共鳴100%で発動する超美麗カットイン必殺技">
-              <div class="skill-icon">🌌</div>
-              <div class="skill-name">儚き絶唱</div>
-              <div class="skill-burst-shine"></div>
+            <button class="tab-btn" data-web-tab="tab-relics">
+              <span class="tab-icon">🕯️</span> 儚き遺物
             </button>
           </div>
-        </div>
 
-      </div>
+          <!-- Web Sub-Panel 1: Upgrades (記憶調律) -->
+          <div class="sidebar-tab-content active" id="tab-upgrades">
+            <div class="sub-panel-header">
+              <h3>🔮 記憶調律 (Stellar Harmony)</h3>
+              <p>星脈を調律し、巫女と星盤の力を強化する</p>
+            </div>
+            <div class="resonance-cards-grid" id="upgrades-list"></div>
+          </div>
 
-      <!-- 3. BOTTOM MENU SHEET CONTROLS (Tappable Sub-Modals, Zero Screen Shift) -->
-      <footer id="game-bottom-bar">
-        <button class="menu-action-btn active" id="btn-tab-battle">
-          <span class="menu-icon">🌌</span>
-          <span class="menu-txt">天球星盤</span>
-        </button>
-        <button class="menu-action-btn" id="btn-open-transcendence">
-          <span class="menu-icon">⏳</span>
-          <span class="menu-txt">追憶昇華</span>
-        </button>
-        <button class="menu-action-btn" id="btn-open-resonance">
-          <span class="menu-icon">🔮</span>
-          <span class="menu-txt">記憶調律</span>
-        </button>
-        <button class="menu-action-btn" id="btn-open-relics">
-          <span class="menu-icon">🕯️</span>
-          <span class="menu-txt">儚き遺物</span>
-        </button>
-      </footer>
+          <!-- Web Sub-Panel 2: Transcendence (追憶昇華) -->
+          <div class="sidebar-tab-content" id="tab-transcendence">
+            <div class="sub-panel-header">
+              <h3>⏳ 追憶昇華 (Transcendence)</h3>
+              <p>世界を再誕させ、永続の星種を獲得する</p>
+            </div>
+
+            <div class="transcendence-banner">
+              <img src="/assets/echo_transcendence.png" alt="追憶昇華" />
+              <div class="transcendence-overlay">
+                <p class="transcendence-sub">「この儚き旅路を捧げ、魂を永久の境地へと昇華させる」</p>
+              </div>
+            </div>
+
+            <div class="transcendence-stats-box">
+              <div class="trans-stat-item">
+                <span>獲得可能な「昇華の星種」</span>
+                <span class="stat-val" id="transcendence-gain-val">+3 ⭐</span>
+              </div>
+              <div class="trans-stat-item">
+                <span>所持している星種</span>
+                <span class="stat-val gold" id="transcendence-owned-val">0 ⭐</span>
+              </div>
+              <button class="glass-btn primary glow" id="btn-do-transcendence">
+                追憶昇華を実行する (世界再誕)
+              </button>
+            </div>
+
+            <div class="trans-tree-container" id="transcendence-tree"></div>
+          </div>
+
+          <!-- Web Sub-Panel 3: Relics (儚き遺物) -->
+          <div class="sidebar-tab-content" id="tab-relics">
+            <div class="sub-panel-header">
+              <h3>🕯️ 儚き遺物 (Ephemeral Relics)</h3>
+              <p>深淵の旅路で拾い集めた尊き記憶の残照</p>
+            </div>
+            <div class="relics-grid" id="relics-list"></div>
+          </div>
+
+        </aside>
+
+      </main>
 
       <!-- Floating Damage Layer -->
       <div id="float-damage-layer"></div>
@@ -171,73 +274,6 @@
           <div class="cutin-text-group">
             <div class="cutin-sub">泡沫の祈祷 · 最終絶唱</div>
             <div class="cutin-main">「世界が消えても、この記憶だけは……！」</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- SUB-SHEET MODAL: 追憶昇華 (TRANSCENDENCE ASCENSION) -->
-      <div id="sheet-transcendence" class="app-modal-sheet hidden">
-        <div class="sheet-panel">
-          <div class="sheet-header">
-            <h3>⏳ 追憶昇華 (TRANSCENDENCE)</h3>
-            <button class="btn-close-sheet" data-sheet="sheet-transcendence">✕</button>
-          </div>
-          <div class="sheet-scroll-body">
-            <div class="transcendence-banner">
-              <img src="/assets/echo_transcendence.png" alt="追憶昇華" />
-              <div class="transcendence-overlay">
-                <p class="transcendence-sub">「この儚き旅路を捧げ、魂を永久の境地へと昇華させる」</p>
-              </div>
-            </div>
-            
-            <div class="transcendence-stats-box">
-              <div class="trans-stat-item">
-                <span>現在獲得可能な「昇華の星種」</span>
-                <span class="stat-val" id="transcendence-gain-val">+3 ⭐</span>
-              </div>
-              <div class="trans-stat-item">
-                <span>所持している星種</span>
-                <span class="stat-val gold" id="transcendence-owned-val">0 ⭐</span>
-              </div>
-              <button class="glass-btn primary glow" id="btn-do-transcendence">
-                追憶昇華を実行する (世界再誕)
-              </button>
-            </div>
-
-            <!-- Transcendence Skill Tree -->
-            <div class="trans-tree-container" id="transcendence-tree"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- SUB-SHEET MODAL: 記憶調律 (RESONANCE UPGRADES) -->
-      <div id="sheet-resonance" class="app-modal-sheet hidden">
-        <div class="sheet-panel">
-          <div class="sheet-header">
-            <h3>🔮 記憶調律 (STELLAR HARMONY)</h3>
-            <button class="btn-close-sheet" data-sheet="sheet-resonance">✕</button>
-          </div>
-          <div class="sheet-scroll-body">
-            <div class="section-hero">
-              <p class="section-desc">星脈を調律し、消えゆく魂に永久の力を与える</p>
-            </div>
-            <div class="resonance-cards-grid" id="upgrades-list"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- SUB-SHEET MODAL: 儚き遺物 (RELICS) -->
-      <div id="sheet-relics" class="app-modal-sheet hidden">
-        <div class="sheet-panel">
-          <div class="sheet-header">
-            <h3>🕯️ 儚き遺物 (EPHEMERAL RELICS)</h3>
-            <button class="btn-close-sheet" data-sheet="sheet-relics">✕</button>
-          </div>
-          <div class="sheet-scroll-body">
-            <div class="section-hero">
-              <p class="section-desc">旅路で拾い集めた、失われた世界の尊き欠片たち</p>
-            </div>
-            <div class="relics-grid" id="relics-list"></div>
           </div>
         </div>
       </div>
@@ -273,6 +309,7 @@
           <button class="glass-btn primary glow" id="btn-next-depth">より深き記憶の深淵へ (次層へ進む)</button>
         </div>
       </div>
+
     </div>
 
     <script type="module" src="/main.js"></script>
