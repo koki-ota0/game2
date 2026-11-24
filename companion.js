@@ -1,8 +1,11 @@
+import { CHARACTER_DIALOGUES } from './dialogues.js';
+
 // Live2D-Style Animated Character Companion with Interactive Physics & Eye Tracking
 export class LapisCompanion {
   constructor(containerEl, onInteract) {
     this.container = containerEl;
     this.onInteract = onInteract;
+    this.dialoguePool = CHARACTER_DIALOGUES.lapis;
     this.mount();
     this.bindMouseTracking();
   }
@@ -68,22 +71,23 @@ export class LapisCompanion {
       this.figureEl.classList.remove('jump', 'shake');
       void this.figureEl.offsetWidth;
       this.figureEl.classList.add('jump');
-      this.speak(type === 'super' ? '「すごいです！星脈が輝いています！」' : '「綺麗……！どんどん繋がりが強くなっていく……！」');
+      const pool = this.dialoguePool.combo;
+      this.speak(pool[Math.floor(Math.random() * pool.length)], 3200);
     } else if (type === 'hit') {
       this.figureEl.classList.remove('jump', 'shake');
       void this.figureEl.offsetWidth;
       this.figureEl.classList.add('shake');
-      this.speak('「くっ……世界の崩壊が……！負けません！」');
+      const pool = this.dialoguePool.danger;
+      this.speak(pool[Math.floor(Math.random() * pool.length)], 3500);
+    } else if (type === 'victory') {
+      this.figureEl.classList.add('jump');
+      const pool = this.dialoguePool.burst_and_victory;
+      this.speak(pool[Math.floor(Math.random() * pool.length)], 4000);
     } else if (type === 'tap') {
       this.figureEl.classList.add('blush');
       setTimeout(() => this.figureEl.classList.remove('blush'), 1200);
-      const quotes = [
-        '「旅人さんの指先、とても温かいです……」',
-        '「私、ずっとあなたの隣で星を見ていたいです」',
-        '「環（ループ）を閉じると、日蝕の力で時間を巻き戻せますよ」',
-        '「世界が消えても、この記憶だけは……！」'
-      ];
-      this.speak(quotes[Math.floor(Math.random() * quotes.length)], 3500);
+      const pool = this.dialoguePool.tap;
+      this.speak(pool[Math.floor(Math.random() * pool.length)], 3600);
       if (this.onInteract) this.onInteract();
     }
   }
