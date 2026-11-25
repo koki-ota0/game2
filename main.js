@@ -4,6 +4,7 @@ import { AmbientVisualizer } from './ambient.js';
 import { GameRecorder } from './recorder.js';
 import { RingFieldEngine } from './ring_field.js';
 import { LapisCompanion } from './companion.js';
+import { PixelFxBridge } from './src/pixelfx_bridge.js';
 import confetti from 'canvas-confetti';
 
 class EphemereGame {
@@ -13,6 +14,7 @@ class EphemereGame {
     this.recorder = null;
     this.ringEngine = null;
     this.companion = null;
+    this.pixelfx = null;
     this.dom = {};
 
     this.bossTimerInterval = null;
@@ -30,8 +32,13 @@ class EphemereGame {
 
     // Mount Concentric Astral Dial Field
     const dialCanvas = document.getElementById('dial-canvas');
+    const pixelfxCanvas = document.getElementById('pixelfx-canvas');
     const astralArena = document.getElementById('astral-arena');
     const battleStage = document.getElementById('battle-stage');
+
+    if (pixelfxCanvas) {
+      this.pixelfx = new PixelFxBridge(pixelfxCanvas);
+    }
 
     if (dialCanvas && astralArena) {
       this.ringEngine = new RingFieldEngine(
@@ -267,6 +274,15 @@ class EphemereGame {
     const arenaRect = document.getElementById('astral-arena').getBoundingClientRect();
     this.dealDamage(damage, isClosed, arenaRect.left + midNode.x, arenaRect.top + midNode.y, isClosed);
 
+    // Trigger PixelFX pixel-art retro effects!
+    if (this.pixelfx) {
+      if (isClosed) {
+        this.pixelfx.playEclipseNova(midNode.x, midNode.y);
+      } else {
+        this.pixelfx.playHit(midNode.x, midNode.y, count >= 3);
+      }
+    }
+
     if (this.visualizer) {
       nodes.forEach(n => {
         this.visualizer.createBurst(arenaRect.left + n.x, arenaRect.top + n.y, '#38bdf8', 12);
@@ -365,6 +381,11 @@ class EphemereGame {
     soundEngine.playGlassTone(880, 0.1, 0.8);
     this.dom.skillReversal.classList.add('active');
 
+    // Trigger PixelFX Mana/Chrono Burst at center of astral arena
+    if (this.pixelfx && this.ringEngine) {
+      this.pixelfx.playChronoBurst(this.ringEngine.center.x, this.ringEngine.center.y);
+    }
+
     setTimeout(() => {
       this.dom.skillReversal.classList.remove('active');
     }, 6000);
@@ -383,6 +404,11 @@ class EphemereGame {
     if (this.ringEngine) {
       this.ringEngine.rotateRing(1, Math.PI / 4);
       this.ringEngine.rotateRing(2, -Math.PI / 6);
+
+      // Trigger PixelFX Golden Sunburst alignment wave
+      if (this.pixelfx) {
+        this.pixelfx.playAlignSunburst(this.ringEngine.center.x, this.ringEngine.center.y);
+      }
     }
 
     this.updateSkillCooldowns();
@@ -410,6 +436,11 @@ class EphemereGame {
     const cy = rect.top + rect.height / 2;
 
     this.dealDamage(burstDmg, true, cx, cy, true);
+
+    // Trigger PixelFX Ultimate Frost Nova & Lightning Burst
+    if (this.pixelfx && this.ringEngine) {
+      this.pixelfx.playUltimateBurst(this.ringEngine.center.x, this.ringEngine.center.y);
+    }
 
     confetti({
       particleCount: 140,
